@@ -14,7 +14,7 @@ func UseIO(id int, totalTime int) {
 		return
 	}
 
-	line := fmt.Sprintf("Thread ID: %d, IO Time: %d\n", id, totalTime)
+	line := fmt.Sprintf("Thread ID: %d, IO Time: %d\n ms", id, totalTime)
 	if _, err := file.WriteString(line); err != nil {
 		fmt.Println("Error writing to IO file:", err)
 		return
