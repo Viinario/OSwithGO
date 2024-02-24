@@ -3,6 +3,7 @@ package cpu
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 // UseCPU simula o uso da CPU pela thread
@@ -18,5 +19,7 @@ func UseCPU(id int, totalTime int) {
 		fmt.Println("Error writing to CPU file:", err)
 		return
 	}
+
+	time.Sleep(time.Duration(totalTime) * time.Millisecond) // Simula o Thread utilizando o tempo de CPU
 	defer file.Close()
 }

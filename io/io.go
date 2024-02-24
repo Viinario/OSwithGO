@@ -3,6 +3,7 @@ package io
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 // UseIO simula o uso do IO pela thread
@@ -18,5 +19,6 @@ func UseIO(id int, totalTime int) {
 		fmt.Println("Error writing to IO file:", err)
 		return
 	}
+	time.Sleep(time.Duration(totalTime) * time.Millisecond) // Simula o Thread utilizando o tempo de IO
 	defer file.Close()
 }

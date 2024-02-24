@@ -3,7 +3,6 @@ package process
 import (
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/Viinario/OSwithGO/cpu"
 	"github.com/Viinario/OSwithGO/io"
@@ -51,11 +50,9 @@ func (t *Thread) Start(cpuTime int, ioTime int) {
 	} else {
 		if t.RemainingCPUTime > 0 {
 			cpu.UseCPU(t.ID, cpuTime)
-			time.Sleep(time.Duration(cpuTime) * time.Millisecond)
 		}
 		if t.RemainingIOTime > 0 {
 			io.UseIO(t.ID, ioTime)
-			time.Sleep(time.Duration(ioTime) * time.Millisecond)
 		}
 	}
 }
