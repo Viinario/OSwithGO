@@ -143,9 +143,7 @@ func (s *Scheduler) RoundRobin() {
 	}
 }
 
-// executeProcess executa um processo CPU-bound e um I/O-bound simultaneamente
-func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
-	// Executa o processo CPU-bound, se disponível
+func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread) {
 	if cpuProcess != nil {
 		if cpuProcess.RemainingCPUTime <= s.Quantum { // Se o tempo de CPU for menor que a da preempção, executa o tempo todo:
 			if cpuProcess.RemainingCPUTime > 0 {
@@ -161,7 +159,7 @@ func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
 				s.FinishProcess(cpuProcess)
 				fmt.Printf("Processo %s finalizado.\n", cpuProcess.Name)
 			} else { // Se o tempo de IO for maior que a da preempção, executa o tempo da preempção:
-				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, s.Quantum)
+				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", cpuProcess.Name, s.Quantum)
 				cpuProcess.Start(cpuProcess.RemainingCPUTime, s.Quantum)
 				cpuProcess.RemainingIOTime -= s.Quantum
 				s.PreemptProcess(cpuProcess)
@@ -184,7 +182,9 @@ func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
 			}
 		}
 	}
-	// Executa o processo I/O-bound, se disponível
+}
+
+func (s *Scheduler) executeIOProcess(ioProcess *process.Thread) {
 	if ioProcess != nil {
 		if ioProcess.RemainingIOTime <= s.Quantum { // se o tempo de IO for menor que da preempção, executa o tempo todo:
 			if ioProcess.RemainingIOTime > 0 {
@@ -194,14 +194,14 @@ func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
 				if ioProcess.RemainingIOTime > 0 {
 					fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingIOTime)
 				}
-				ioProcess.Start(cpuProcess.RemainingCPUTime, cpuProcess.RemainingIOTime)
+				ioProcess.Start(ioProcess.RemainingCPUTime, ioProcess.RemainingIOTime)
 				ioProcess.RemainingIOTime = 0
 				ioProcess.RemainingCPUTime = 0
 				s.FinishProcess(ioProcess)
 				fmt.Printf("Processo %s finalizado.\n", ioProcess.Name)
 			} else {
 				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de CPU for maior que da preempção, executa o tempo da preempção
-				ioProcess.Start(s.Quantum, cpuProcess.RemainingIOTime)
+				ioProcess.Start(s.Quantum, ioProcess.RemainingIOTime)
 				ioProcess.RemainingCPUTime -= s.Quantum
 				s.PreemptProcess(ioProcess)
 			}
@@ -223,7 +223,14 @@ func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
 			}
 		}
 	}
+}
 
+// executeProcess executa um processo CPU-bound e um I/O-bound simultaneamente
+func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
+	// Executa o processo CPU-bound, se disponível
+	s.executeCpuProcess(cpuProcess)
+	// Executa o processo I/O-bound, se disponível
+	s.executeIOProcess(ioProcess)
 	// Atualiza os processos na fila de prontos
 	s.updateReadyQueue(cpuProcess, ioProcess)
 }
