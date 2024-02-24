@@ -40,23 +40,23 @@ func NewThread(name string, priority int, ioBoundInput string, totalCPUTime int,
 }
 
 // Start inicia a execução da thread
-func (t *Thread) Start() {
+func (t *Thread) Start(cpuTime int, ioTime int) {
 	t.wg.Add(1)
 	go func() {
 		defer t.wg.Done()
 		if t.IOBound {
 			if t.RemainingIOTime > 0 {
-				io.UseIO(t.ID, t.RemainingIOTime)
+				io.UseIO(t.ID, ioTime)
 			}
 			if t.RemainingCPUTime > 0 {
-				cpu.UseCPU(t.ID, t.RemainingCPUTime)
+				cpu.UseCPU(t.ID, cpuTime)
 			}
 		} else {
 			if t.RemainingCPUTime > 0 {
-				cpu.UseCPU(t.ID, t.RemainingCPUTime)
+				cpu.UseCPU(t.ID, cpuTime)
 			}
 			if t.RemainingIOTime > 0 {
-				io.UseIO(t.ID, t.RemainingIOTime)
+				io.UseIO(t.ID, ioTime)
 			}
 		}
 	}()

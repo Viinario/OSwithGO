@@ -93,26 +93,110 @@ func (s *Scheduler) PrintReadyQueue() {
 // Tera dois semaforos, um para CPU e outro para IO
 // Caso um processo já esteja utilizando o IO, ele ira esperar ate o semaforo seja liberado
 // a preempção devera ocorrer tanto no cpu bound quanto no io bound
-
 // RoundRobin executa o algoritmo Round Robin
 func (s *Scheduler) RoundRobin() {
-	if s.CurrentProcess == nil {
-		if len(s.ReadyQueue) > 0 {
-			s.CurrentProcess = s.ReadyQueue[0]
-			s.ReadyQueue = s.ReadyQueue[1:]
+	cpuBoundQueue := make([]*process.Thread, 0)
+	ioBoundQueue := make([]*process.Thread, 0)
+
+	// Separa os processos CPU-bound e I/O-bound
+	for _, p := range s.ReadyQueue {
+		if p.IOBound {
+			ioBoundQueue = append(ioBoundQueue, p)
+		} else {
+			cpuBoundQueue = append(cpuBoundQueue, p)
 		}
 	}
 
-	if s.CurrentProcess != nil {
-		if s.CurrentProcess.RemainingCPUTime <= s.Quantum {
-			fmt.Printf("Processo %s está na CPU por %d ms.\n", s.CurrentProcess.Name, s.CurrentProcess.RemainingCPUTime)
-			s.CurrentProcess.RemainingCPUTime = 0
-			s.FinishProcess()
-		} else {
-			fmt.Printf("Processo %s está na CPU por %d ms.\n", s.CurrentProcess.Name, s.Quantum)
-			s.CurrentProcess.RemainingCPUTime -= s.Quantum
-			s.PreemptProcess()
+	// Verifica se há um processo CPU-bound e um I/O-bound para executar
+	if len(cpuBoundQueue) > 0 && len(ioBoundQueue) > 0 {
+		s.executeProcess(cpuBoundQueue[0], ioBoundQueue[0])
+	} else if len(cpuBoundQueue) > 0 {
+		// Se houver apenas um processo CPU-bound, executa-o
+		s.executeProcess(cpuBoundQueue[0], nil)
+	} else if len(ioBoundQueue) > 0 {
+		// Se houver apenas um processo I/O-bound, executa-o
+		s.executeProcess(nil, ioBoundQueue[0])
+	}
+}
+
+// executeProcess executa um processo CPU-bound e um I/O-bound simultaneamente
+func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
+	// Executa o processo CPU-bound, se disponível
+	if cpuProcess != nil {
+		if cpuProcess.RemainingCPUTime <= s.Quantum { // Se o tempo de CPU for menor que a da preempção, executa o tempo todo:
+			fmt.Printf("Processo CPU-bound %s está na CPU por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingCPUTime)
+			if cpuProcess.RemainingIOTime <= s.Quantum { // Se o tempo de IO for menor que a da preempção, executa o tempo todo:
+				fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingIOTime)
+				cpuProcess.Start(cpuProcess.RemainingCPUTime, cpuProcess.RemainingIOTime)
+				cpuProcess.RemainingIOTime = 0
+				cpuProcess.RemainingCPUTime = 0
+				s.FinishProcess()
+			} else { // Se o tempo de IO for maior que a da preempção, executa o tempo da preempção:
+				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, s.Quantum)
+				cpuProcess.Start(cpuProcess.RemainingCPUTime, s.Quantum)
+				cpuProcess.RemainingIOTime -= s.Quantum
+				s.PreemptProcess()
+			}
+		} else { // Se o tempo de CPU for maior que a da preempção, executa o tempo da preempção:
+			fmt.Printf("Processo CPU-bound %s está na CPU por %d ms.\n", cpuProcess.Name, s.Quantum)
+			cpuProcess.RemainingCPUTime -= s.Quantum
+			if cpuProcess.RemainingIOTime <= s.Quantum { // Se o tempo de IO for menor que a da preempção, executa o tempo todo:
+				fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingIOTime)
+				cpuProcess.Start(s.Quantum, cpuProcess.RemainingIOTime)
+				cpuProcess.RemainingIOTime = 0
+				s.PreemptProcess()
+			} else { // Se o tempo de IO e CPU for maior que a da preempção, executa o tempo da preempção:
+				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, s.Quantum)
+				cpuProcess.RemainingIOTime -= s.Quantum
+				cpuProcess.Start(s.Quantum, s.Quantum)
+				s.PreemptProcess()
+			}
 		}
+	}
+	// Executa o processo I/O-bound, se disponível
+	if ioProcess != nil {
+		if ioProcess.RemainingIOTime <= s.Quantum { // se o tempo de IO for menor que da preempção, executa o tempo todo:
+			fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, ioProcess.RemainingIOTime)
+			if ioProcess.RemainingCPUTime <= s.Quantum { // se o tempo de CPU for menor que da preempção, executa o tempo todo
+				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingIOTime)
+				ioProcess.Start(cpuProcess.RemainingCPUTime, cpuProcess.RemainingIOTime)
+				ioProcess.RemainingIOTime = 0
+				ioProcess.RemainingCPUTime = 0
+				s.FinishProcess()
+			} else {
+				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de CPU for maior que da preempção, executa o tempo da preempção
+				ioProcess.Start(s.Quantum, cpuProcess.RemainingIOTime)
+				ioProcess.RemainingCPUTime -= s.Quantum
+				s.PreemptProcess()
+			}
+		} else {
+			fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de IO for maior que da preempção, executa o tempo da preempção
+			ioProcess.RemainingIOTime -= s.Quantum
+			if ioProcess.RemainingCPUTime <= s.Quantum {
+				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingCPUTime) // se o tempo de CPU for menor que da preempção, executa o tempo todo
+				ioProcess.Start(ioProcess.RemainingCPUTime, s.Quantum)
+				ioProcess.RemainingCPUTime = 0
+				s.PreemptProcess()
+			} else {
+				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de CPU e IO for maior que da preempção, executa o tempo da preempção
+				ioProcess.Start(s.Quantum, s.Quantum)
+				ioProcess.RemainingCPUTime -= s.Quantum
+				s.PreemptProcess()
+			}
+		}
+	}
+
+	// Atualiza os processos na fila de prontos
+	s.updateReadyQueue(cpuProcess, ioProcess)
+}
+
+// updateReadyQueue atualiza a fila de prontos após a execução dos processos
+func (s *Scheduler) updateReadyQueue(cpuProcess, ioProcess *process.Thread) {
+	if cpuProcess != nil && cpuProcess.RemainingCPUTime > 0 {
+		s.ReadyQueue = append(s.ReadyQueue, cpuProcess)
+	}
+	if ioProcess != nil && ioProcess.RemainingIOTime > 0 {
+		s.ReadyQueue = append(s.ReadyQueue, ioProcess)
 	}
 }
 
