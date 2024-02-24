@@ -37,14 +37,14 @@ func (s *Scheduler) CreateRandomProcesses(numProcesses int) {
 	for i := 0; i < numProcesses; i++ {
 		name := randString(3)
 		priority := rand.Intn(10) + 1
+		totalCPUTime := rand.Intn(10) + 1
+		totalIOTime := rand.Intn(10) + 1
 		var ioBound string
-		if rand.Intn(2) == 0 {
+		if totalIOTime > totalCPUTime {
 			ioBound = "s"
 		} else {
 			ioBound = "n"
 		}
-		totalCPUTime := rand.Intn(10) + 1
-		totalIOTime := rand.Intn(10) + 1
 
 		process := process.NewThread(name, priority, ioBound, totalCPUTime, totalIOTime)
 
@@ -88,6 +88,11 @@ func (s *Scheduler) PrintReadyQueue() {
 		fmt.Printf("ID: %d, Nome: %s, Prioridade: %d, CPU Time Restante: %d ms, IO Time Restante: %d ms, Tipo: %s\n", process.ID, process.Name, process.Priority, process.RemainingCPUTime, process.RemainingIOTime, ioBoundInfo)
 	}
 }
+
+// Aqui o algoritmo ira dar um tempo igual de uso de cpu de io chamado preempção.
+// Tera dois semaforos, um para CPU e outro para IO
+// Caso um processo já esteja utilizando o IO, ele ira esperar ate o semaforo seja liberado
+// a preempção devera ocorrer tanto no cpu bound quanto no io bound
 
 // RoundRobin executa o algoritmo Round Robin
 func (s *Scheduler) RoundRobin() {
