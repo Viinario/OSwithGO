@@ -90,15 +90,13 @@ func (s *Scheduler) PrintReadyQueue() {
 }
 
 // PreemptProcess realiza a preempção e adiciona o processo de volta à fila de prontos
-func (s *Scheduler) PreemptProcess() {
-	s.ReadyQueue = append(s.ReadyQueue, s.CurrentProcess)
-	s.CurrentProcess = nil
+func (s *Scheduler) PreemptProcess(process *process.Thread) {
+	s.FinishProcess(process)
+	//s.ReadyQueue = append(s.ReadyQueue, process) // Adiciona o processo ao final da fila
 }
 
 // FinishProcess finaliza um processo
 func (s *Scheduler) FinishProcess(process *process.Thread) {
-	fmt.Printf("Processo %s finalizado.\n", process.Name)
-
 	// Encontrar o índice do processo a ser removido
 	index := -1
 	for i, p := range s.ReadyQueue {
@@ -150,64 +148,78 @@ func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
 	// Executa o processo CPU-bound, se disponível
 	if cpuProcess != nil {
 		if cpuProcess.RemainingCPUTime <= s.Quantum { // Se o tempo de CPU for menor que a da preempção, executa o tempo todo:
-			fmt.Printf("Processo CPU-bound %s está na CPU por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingCPUTime)
+			if cpuProcess.RemainingCPUTime > 0 {
+				fmt.Printf("Processo CPU-bound %s está na CPU por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingCPUTime)
+			}
 			if cpuProcess.RemainingIOTime <= s.Quantum { // Se o tempo de IO for menor que a da preempção, executa o tempo todo:
-				fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingIOTime)
+				if cpuProcess.RemainingIOTime > 0 {
+					fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingIOTime)
+				}
 				cpuProcess.Start(cpuProcess.RemainingCPUTime, cpuProcess.RemainingIOTime)
 				cpuProcess.RemainingIOTime = 0
 				cpuProcess.RemainingCPUTime = 0
 				s.FinishProcess(cpuProcess)
+				fmt.Printf("Processo %s finalizado.\n", cpuProcess.Name)
 			} else { // Se o tempo de IO for maior que a da preempção, executa o tempo da preempção:
 				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, s.Quantum)
 				cpuProcess.Start(cpuProcess.RemainingCPUTime, s.Quantum)
 				cpuProcess.RemainingIOTime -= s.Quantum
-				s.PreemptProcess()
+				s.PreemptProcess(cpuProcess)
 			}
 		} else { // Se o tempo de CPU for maior que a da preempção, executa o tempo da preempção:
 			fmt.Printf("Processo CPU-bound %s está na CPU por %d ms.\n", cpuProcess.Name, s.Quantum)
 			cpuProcess.RemainingCPUTime -= s.Quantum
 			if cpuProcess.RemainingIOTime <= s.Quantum { // Se o tempo de IO for menor que a da preempção, executa o tempo todo:
-				fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingIOTime)
+				if cpuProcess.RemainingIOTime > 0 {
+					fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingIOTime)
+				}
 				cpuProcess.Start(s.Quantum, cpuProcess.RemainingIOTime)
 				cpuProcess.RemainingIOTime = 0
-				s.PreemptProcess()
+				s.PreemptProcess(cpuProcess)
 			} else { // Se o tempo de IO e CPU for maior que a da preempção, executa o tempo da preempção:
-				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, s.Quantum)
+				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", cpuProcess.Name, s.Quantum)
 				cpuProcess.RemainingIOTime -= s.Quantum
 				cpuProcess.Start(s.Quantum, s.Quantum)
-				s.PreemptProcess()
+				s.PreemptProcess(cpuProcess)
 			}
 		}
 	}
 	// Executa o processo I/O-bound, se disponível
 	if ioProcess != nil {
 		if ioProcess.RemainingIOTime <= s.Quantum { // se o tempo de IO for menor que da preempção, executa o tempo todo:
-			fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, ioProcess.RemainingIOTime)
+			if ioProcess.RemainingIOTime > 0 {
+				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, ioProcess.RemainingIOTime)
+			}
 			if ioProcess.RemainingCPUTime <= s.Quantum { // se o tempo de CPU for menor que da preempção, executa o tempo todo
-				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingIOTime)
+				if ioProcess.RemainingIOTime > 0 {
+					fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingIOTime)
+				}
 				ioProcess.Start(cpuProcess.RemainingCPUTime, cpuProcess.RemainingIOTime)
 				ioProcess.RemainingIOTime = 0
 				ioProcess.RemainingCPUTime = 0
 				s.FinishProcess(ioProcess)
+				fmt.Printf("Processo %s finalizado.\n", ioProcess.Name)
 			} else {
 				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de CPU for maior que da preempção, executa o tempo da preempção
 				ioProcess.Start(s.Quantum, cpuProcess.RemainingIOTime)
 				ioProcess.RemainingCPUTime -= s.Quantum
-				s.PreemptProcess()
+				s.PreemptProcess(ioProcess)
 			}
 		} else {
 			fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de IO for maior que da preempção, executa o tempo da preempção
 			ioProcess.RemainingIOTime -= s.Quantum
 			if ioProcess.RemainingCPUTime <= s.Quantum {
-				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingCPUTime) // se o tempo de CPU for menor que da preempção, executa o tempo todo
+				if ioProcess.RemainingCPUTime > 0 {
+					fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingCPUTime)
+				}
 				ioProcess.Start(ioProcess.RemainingCPUTime, s.Quantum)
 				ioProcess.RemainingCPUTime = 0
-				s.PreemptProcess()
+				s.PreemptProcess(ioProcess)
 			} else {
 				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de CPU e IO for maior que da preempção, executa o tempo da preempção
 				ioProcess.Start(s.Quantum, s.Quantum)
 				ioProcess.RemainingCPUTime -= s.Quantum
-				s.PreemptProcess()
+				s.PreemptProcess(ioProcess)
 			}
 		}
 	}
@@ -244,7 +256,7 @@ func (s *Scheduler) Priority() {
 		} else {
 			fmt.Printf("Processo %s está na CPU por %d ms.\n", s.CurrentProcess.Name, s.Quantum)
 			s.CurrentProcess.RemainingCPUTime -= s.Quantum
-			s.PreemptProcess()
+			//s.PreemptProcess()
 		}
 	}
 }

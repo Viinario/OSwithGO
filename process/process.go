@@ -42,17 +42,17 @@ func NewThread(name string, priority int, ioBoundInput string, totalCPUTime int,
 func (t *Thread) Start(cpuTime int, ioTime int) {
 	if t.IOBound {
 		if t.RemainingIOTime > 0 {
-			io.UseIO(t.ID, ioTime)
+			io.UseIO(t.Name, t.ID, ioTime)
 		}
 		if t.RemainingCPUTime > 0 {
-			cpu.UseCPU(t.ID, cpuTime)
+			cpu.UseCPU(t.Name, t.ID, cpuTime)
 		}
 	} else {
 		if t.RemainingCPUTime > 0 {
-			cpu.UseCPU(t.ID, cpuTime)
+			cpu.UseCPU(t.Name, t.ID, cpuTime)
 		}
 		if t.RemainingIOTime > 0 {
-			io.UseIO(t.ID, ioTime)
+			io.UseIO(t.Name, t.ID, ioTime)
 		}
 	}
 }
