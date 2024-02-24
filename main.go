@@ -33,6 +33,7 @@ func main() {
 			var priority int
 			var ioBoundInput string
 			var totalCPUTime int
+			var totalIOTime int
 
 			fmt.Print("Digite o nome do processo: ")
 			fmt.Scanln(&name)
@@ -40,10 +41,12 @@ func main() {
 			fmt.Scanln(&priority)
 			fmt.Print("O processo é I/O bound (S/N)? ")
 			fmt.Scanln(&ioBoundInput)
-			fmt.Print("Digite o tempo total de CPU (1 a 10 ms): ")
+			fmt.Print("Digite o tempo total de CPU (Ex: 10): ")
 			fmt.Scanln(&totalCPUTime)
+			fmt.Print("Digite o tempo total de IO (Ex: 10): ")
+			fmt.Scanln(&totalIOTime)
 
-			s.CreateProcess(name, priority, ioBoundInput, totalCPUTime)
+			s.CreateProcess(name, priority, ioBoundInput, totalCPUTime, totalIOTime)
 
 		case 2:
 			var algorithmChoice int

@@ -11,9 +11,9 @@ import (
 
 // Scheduler gerencia o escalonamento de processos
 type Scheduler struct {
-	Processes      []*process.Process
-	ReadyQueue     []*process.Process
-	CurrentProcess *process.Process
+	Processes      []*process.Thread
+	ReadyQueue     []*process.Thread
+	CurrentProcess *process.Thread
 	Algorithm      func()
 	Quantum        int
 }
@@ -24,8 +24,8 @@ func NewScheduler() *Scheduler {
 }
 
 // CreateProcess cria um novo processo manualmente
-func (s *Scheduler) CreateProcess(name string, priority int, ioBoundInput string, totalCPUTime int) {
-	process := process.NewProcess(name, priority, ioBoundInput, totalCPUTime)
+func (s *Scheduler) CreateProcess(name string, priority int, ioBoundInput string, totalCPUTime int, totalIOTime int) {
+	process := process.NewThread(name, priority, ioBoundInput, totalCPUTime, totalIOTime)
 	s.Processes = append(s.Processes, process)
 	s.ReadyQueue = append(s.ReadyQueue, process)
 }
@@ -37,10 +37,16 @@ func (s *Scheduler) CreateRandomProcesses(numProcesses int) {
 	for i := 0; i < numProcesses; i++ {
 		name := randString(3)
 		priority := rand.Intn(10) + 1
-		ioBound := rand.Intn(2) == 0
+		var ioBound string
+		if rand.Intn(2) == 0 {
+			ioBound = "s"
+		} else {
+			ioBound = "n"
+		}
 		totalCPUTime := rand.Intn(10) + 1
+		totalIOTime := rand.Intn(10) + 1
 
-		process := process.NewProcess(name, priority, fmt.Sprintf("%t", ioBound), totalCPUTime)
+		process := process.NewThread(name, priority, ioBound, totalCPUTime, totalIOTime)
 
 		s.Processes = append(s.Processes, process)
 		s.ReadyQueue = append(s.ReadyQueue, process)
@@ -79,7 +85,7 @@ func (s *Scheduler) PrintReadyQueue() {
 		if process.IOBound {
 			ioBoundInfo = "I/O Bound"
 		}
-		fmt.Printf("ID: %d, Nome: %s, Prioridade: %d, CPU Time Restante: %d ms, Tipo: %s\n", process.ID, process.Name, process.Priority, process.RemainingCPUTime, ioBoundInfo)
+		fmt.Printf("ID: %d, Nome: %s, Prioridade: %d, CPU Time Restante: %d ms, IO Time Restante: %d ms, Tipo: %s\n", process.ID, process.Name, process.Priority, process.RemainingCPUTime, process.RemainingIOTime, ioBoundInfo)
 	}
 }
 
@@ -129,8 +135,8 @@ func (s *Scheduler) Priority() {
 }
 
 // sortByPriority ordena a fila de processos por prioridade
-func (s *Scheduler) sortByPriority(processes []*process.Process) []*process.Process {
-	sortedProcesses := make([]*process.Process, len(processes))
+func (s *Scheduler) sortByPriority(processes []*process.Thread) []*process.Thread {
+	sortedProcesses := make([]*process.Thread, len(processes))
 	copy(sortedProcesses, processes)
 	sort.Slice(sortedProcesses, func(i, j int) bool {
 		return sortedProcesses[i].Priority > sortedProcesses[j].Priority
