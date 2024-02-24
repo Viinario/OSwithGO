@@ -89,6 +89,32 @@ func (s *Scheduler) PrintReadyQueue() {
 	}
 }
 
+// PreemptProcess realiza a preempção e adiciona o processo de volta à fila de prontos
+func (s *Scheduler) PreemptProcess() {
+	s.ReadyQueue = append(s.ReadyQueue, s.CurrentProcess)
+	s.CurrentProcess = nil
+}
+
+// FinishProcess finaliza um processo
+func (s *Scheduler) FinishProcess(process *process.Thread) {
+	fmt.Printf("Processo %s finalizado.\n", process.Name)
+
+	// Encontrar o índice do processo a ser removido
+	index := -1
+	for i, p := range s.ReadyQueue {
+		if p == process { // Verifica se o ponteiro é o mesmo
+			index = i
+			break
+		}
+	}
+
+	// Se o processo foi encontrado, remova-o
+	if index != -1 {
+		// Remover o processo do slice
+		s.ReadyQueue = append(s.ReadyQueue[:index], s.ReadyQueue[index+1:]...)
+	}
+}
+
 // Aqui o algoritmo ira dar um tempo igual de uso de cpu de io chamado preempção.
 // Tera dois semaforos, um para CPU e outro para IO
 // Caso um processo já esteja utilizando o IO, ele ira esperar ate o semaforo seja liberado
@@ -130,7 +156,7 @@ func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
 				cpuProcess.Start(cpuProcess.RemainingCPUTime, cpuProcess.RemainingIOTime)
 				cpuProcess.RemainingIOTime = 0
 				cpuProcess.RemainingCPUTime = 0
-				s.FinishProcess()
+				s.FinishProcess(cpuProcess)
 			} else { // Se o tempo de IO for maior que a da preempção, executa o tempo da preempção:
 				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, s.Quantum)
 				cpuProcess.Start(cpuProcess.RemainingCPUTime, s.Quantum)
@@ -162,7 +188,7 @@ func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
 				ioProcess.Start(cpuProcess.RemainingCPUTime, cpuProcess.RemainingIOTime)
 				ioProcess.RemainingIOTime = 0
 				ioProcess.RemainingCPUTime = 0
-				s.FinishProcess()
+				s.FinishProcess(ioProcess)
 			} else {
 				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de CPU for maior que da preempção, executa o tempo da preempção
 				ioProcess.Start(s.Quantum, cpuProcess.RemainingIOTime)
@@ -214,7 +240,7 @@ func (s *Scheduler) Priority() {
 		if s.CurrentProcess.RemainingCPUTime <= s.Quantum {
 			fmt.Printf("Processo %s está na CPU por %d ms.\n", s.CurrentProcess.Name, s.CurrentProcess.RemainingCPUTime)
 			s.CurrentProcess.RemainingCPUTime = 0
-			s.FinishProcess()
+			//s.FinishProcess()
 		} else {
 			fmt.Printf("Processo %s está na CPU por %d ms.\n", s.CurrentProcess.Name, s.Quantum)
 			s.CurrentProcess.RemainingCPUTime -= s.Quantum
@@ -231,18 +257,6 @@ func (s *Scheduler) sortByPriority(processes []*process.Thread) []*process.Threa
 		return sortedProcesses[i].Priority > sortedProcesses[j].Priority
 	})
 	return sortedProcesses
-}
-
-// PreemptProcess realiza a preempção e adiciona o processo de volta à fila de prontos
-func (s *Scheduler) PreemptProcess() {
-	s.ReadyQueue = append(s.ReadyQueue, s.CurrentProcess)
-	s.CurrentProcess = nil
-}
-
-// FinishProcess finaliza um processo
-func (s *Scheduler) FinishProcess() {
-	fmt.Printf("Processo %s finalizado.\n", s.CurrentProcess.Name)
-	s.CurrentProcess = nil
 }
 
 // RunSimulation executa a simulação de escalonamento
