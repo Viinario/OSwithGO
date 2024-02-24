@@ -3,6 +3,7 @@ package process
 import (
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Viinario/OSwithGO/cpu"
 	"github.com/Viinario/OSwithGO/io"
@@ -21,7 +22,6 @@ type Thread struct {
 	RemainingCPUTime int
 	TotalIOTime      int
 	RemainingIOTime  int
-	wg               sync.WaitGroup // Usado para sincronizar a conclusão da thread
 }
 
 // NewThread cria uma nova thread manualmente
@@ -41,30 +41,23 @@ func NewThread(name string, priority int, ioBoundInput string, totalCPUTime int,
 
 // Start inicia a execução da thread
 func (t *Thread) Start(cpuTime int, ioTime int) {
-	t.wg.Add(1)
-	go func() {
-		defer t.wg.Done()
-		if t.IOBound {
-			if t.RemainingIOTime > 0 {
-				io.UseIO(t.ID, ioTime)
-			}
-			if t.RemainingCPUTime > 0 {
-				cpu.UseCPU(t.ID, cpuTime)
-			}
-		} else {
-			if t.RemainingCPUTime > 0 {
-				cpu.UseCPU(t.ID, cpuTime)
-			}
-			if t.RemainingIOTime > 0 {
-				io.UseIO(t.ID, ioTime)
-			}
+	if t.IOBound {
+		if t.RemainingIOTime > 0 {
+			io.UseIO(t.ID, ioTime)
 		}
-	}()
-}
-
-// Wait espera até que a thread termine sua execução
-func (t *Thread) Wait() {
-	t.wg.Wait()
+		if t.RemainingCPUTime > 0 {
+			cpu.UseCPU(t.ID, cpuTime)
+		}
+	} else {
+		if t.RemainingCPUTime > 0 {
+			cpu.UseCPU(t.ID, cpuTime)
+			time.Sleep(time.Duration(cpuTime) * time.Millisecond)
+		}
+		if t.RemainingIOTime > 0 {
+			io.UseIO(t.ID, ioTime)
+			time.Sleep(time.Duration(ioTime) * time.Millisecond)
+		}
+	}
 }
 
 // generateID gera um ID único para a thread
