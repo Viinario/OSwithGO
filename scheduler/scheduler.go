@@ -143,7 +143,7 @@ func (s *Scheduler) RoundRobin() {
 	}
 }
 
-func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread) {
+func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread, done chan bool) {
 	if cpuProcess != nil {
 		if cpuProcess.RemainingCPUTime <= s.Quantum { // Se o tempo de CPU for menor que a da preempção, executa o tempo todo:
 			if cpuProcess.RemainingCPUTime > 0 {
@@ -181,10 +181,13 @@ func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread) {
 				s.PreemptProcess(cpuProcess)
 			}
 		}
+		done <- true
+	} else {
+		done <- true
 	}
 }
 
-func (s *Scheduler) executeIOProcess(ioProcess *process.Thread) {
+func (s *Scheduler) executeIOProcess(ioProcess *process.Thread, done chan bool) {
 	if ioProcess != nil {
 		if ioProcess.RemainingIOTime <= s.Quantum { // se o tempo de IO for menor que da preempção, executa o tempo todo:
 			if ioProcess.RemainingIOTime > 0 {
@@ -192,7 +195,7 @@ func (s *Scheduler) executeIOProcess(ioProcess *process.Thread) {
 			}
 			if ioProcess.RemainingCPUTime <= s.Quantum { // se o tempo de CPU for menor que da preempção, executa o tempo todo
 				if ioProcess.RemainingIOTime > 0 {
-					fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingIOTime)
+					fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingCPUTime)
 				}
 				ioProcess.Start(ioProcess.RemainingCPUTime, ioProcess.RemainingIOTime)
 				ioProcess.RemainingIOTime = 0
@@ -222,16 +225,23 @@ func (s *Scheduler) executeIOProcess(ioProcess *process.Thread) {
 				s.PreemptProcess(ioProcess)
 			}
 		}
+		done <- true
+	} else {
+		done <- true
 	}
 }
 
 // executeProcess executa um processo CPU-bound e um I/O-bound simultaneamente
 func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
+	cCpu := make(chan bool)
+	cIO := make(chan bool)
 	// Executa o processo CPU-bound, se disponível
-	s.executeCpuProcess(cpuProcess)
+	go s.executeCpuProcess(cpuProcess, cCpu)
 	// Executa o processo I/O-bound, se disponível
-	s.executeIOProcess(ioProcess)
+	go s.executeIOProcess(ioProcess, cIO)
 	// Atualiza os processos na fila de prontos
+	<-cCpu
+	<-cIO
 	s.updateReadyQueue(cpuProcess, ioProcess)
 }
 
