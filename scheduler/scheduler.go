@@ -143,7 +143,7 @@ func (s *Scheduler) RoundRobin() {
 	}
 }
 
-func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread, done chan bool) {
+func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread, done chan<- bool) {
 	if cpuProcess != nil {
 		if cpuProcess.RemainingCPUTime <= s.Quantum { // Se o tempo de CPU for menor que a da preempção, executa o tempo todo:
 			if cpuProcess.RemainingCPUTime > 0 {
@@ -187,7 +187,7 @@ func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread, done chan bool
 	}
 }
 
-func (s *Scheduler) executeIOProcess(ioProcess *process.Thread, done chan bool) {
+func (s *Scheduler) executeIOProcess(ioProcess *process.Thread, done chan<- bool) {
 	if ioProcess != nil {
 		if ioProcess.RemainingIOTime <= s.Quantum { // se o tempo de IO for menor que da preempção, executa o tempo todo:
 			if ioProcess.RemainingIOTime > 0 {
