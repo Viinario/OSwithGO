@@ -4,9 +4,18 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 
+	"github.com/Viinario/OSwithGO/cpu"
+	"github.com/Viinario/OSwithGO/io"
 	"github.com/Viinario/OSwithGO/process"
+)
+
+var (
+	cpuResource = make(chan bool, 1) // Canal para controlar o recurso da CPU
+	ioResource  = make(chan bool, 1) // Canal para controlar o recurso de IO
+	wg          sync.WaitGroup
 )
 
 // Scheduler gerencia o escalonamento de processos
@@ -139,105 +148,245 @@ func (s *Scheduler) RoundRobin() {
 	}
 }
 
-func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread, done chan<- bool) {
+func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread, wg *sync.WaitGroup) {
+	defer wg.Done()
 	if cpuProcess != nil {
 		if cpuProcess.RemainingCPUTime <= s.Quantum { // Se o tempo de CPU for menor que a da preempção, executa o tempo todo:
 			if cpuProcess.RemainingCPUTime > 0 {
-				fmt.Printf("Processo CPU-bound %s está na CPU por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingCPUTime)
+			Loop_Cpu:
+				for {
+					select {
+					case cpuResource <- true:
+						fmt.Printf("Processo CPU-bound %s está na CPU por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingCPUTime)
+						cpu.UseCPU(cpuProcess.Name, cpuProcess.ID, cpuProcess.RemainingCPUTime)
+						cpuProcess.RemainingCPUTime = 0
+						<-cpuResource
+						break Loop_Cpu
+					default:
+						fmt.Printf("CPU Bound: %s Recurso CPU ocupado, esperando...\n", cpuProcess.Name)
+						time.Sleep(2 * time.Millisecond)
+					}
+				}
 			}
 			if cpuProcess.RemainingIOTime <= s.Quantum { // Se o tempo de IO for menor que a da preempção, executa o tempo todo:
 				if cpuProcess.RemainingIOTime > 0 {
-					fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingIOTime)
+					for {
+						select {
+						case ioResource <- true:
+							fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingIOTime)
+							io.UseIO(cpuProcess.Name, cpuProcess.ID, cpuProcess.RemainingIOTime)
+							cpuProcess.RemainingIOTime = 0
+							s.FinishProcess(cpuProcess)
+							fmt.Printf("Processo %s finalizado.\n", cpuProcess.Name)
+							<-ioResource
+							return
+						default:
+							fmt.Printf("CPU Bound: %s Recurso E/S ocupado, esperando...\n", cpuProcess.Name)
+							time.Sleep(2 * time.Millisecond)
+						}
+					}
+				} else {
+					s.FinishProcess(cpuProcess)
+					fmt.Printf("Processo %s finalizado.\n", cpuProcess.Name)
+					return
 				}
-				cpuProcess.Start(cpuProcess.RemainingCPUTime, cpuProcess.RemainingIOTime)
-				cpuProcess.RemainingIOTime = 0
-				cpuProcess.RemainingCPUTime = 0
-				s.FinishProcess(cpuProcess)
-				fmt.Printf("Processo %s finalizado.\n", cpuProcess.Name)
-			} else { // Se o tempo de IO for maior que a da preempção, executa o tempo da preempção:
-				fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, s.Quantum)
-				cpuProcess.Start(cpuProcess.RemainingCPUTime, s.Quantum)
-				cpuProcess.RemainingIOTime -= s.Quantum
-				s.PreemptProcess(cpuProcess)
+			} else if cpuProcess.RemainingIOTime > s.Quantum { // Se o tempo de IO for maior que a da preempção, executa o tempo da preempção:
+			Loop_Cpu_3:
+				for {
+					select {
+					case ioResource <- true:
+						fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, s.Quantum)
+						io.UseIO(cpuProcess.Name, cpuProcess.ID, s.Quantum)
+						cpuProcess.RemainingIOTime -= s.Quantum
+						s.PreemptProcess(cpuProcess)
+						<-ioResource
+						break Loop_Cpu_3
+					default:
+						fmt.Printf("CPU Bound: %s Recurso E/S ocupado, esperando...\n", cpuProcess.Name)
+						time.Sleep(2 * time.Millisecond)
+					}
+				}
 			}
-		} else { // Se o tempo de CPU for maior que a da preempção, executa o tempo da preempção:
-			fmt.Printf("Processo CPU-bound %s está na CPU por %d ms.\n", cpuProcess.Name, s.Quantum)
-			cpuProcess.RemainingCPUTime -= s.Quantum
+		} else if cpuProcess.RemainingCPUTime > s.Quantum { // Se o tempo de CPU for maior que a da preempção, executa o tempo da preempção:
+		Loop_Cpu_4:
+			for {
+				select {
+				case cpuResource <- true:
+					fmt.Printf("Processo CPU-bound %s está na CPU por %d ms.\n", cpuProcess.Name, s.Quantum)
+					cpu.UseCPU(cpuProcess.Name, cpuProcess.ID, s.Quantum)
+					cpuProcess.RemainingCPUTime -= s.Quantum
+					<-cpuResource
+					break Loop_Cpu_4
+				default:
+					fmt.Printf("CPU Bound: %s Recurso CPU ocupado, esperando...\n", cpuProcess.Name)
+					time.Sleep(2 * time.Millisecond)
+				}
+			}
 			if cpuProcess.RemainingIOTime <= s.Quantum { // Se o tempo de IO for menor que a da preempção, executa o tempo todo:
 				if cpuProcess.RemainingIOTime > 0 {
-					fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingIOTime)
+				Loop_Cpu_5:
+					for {
+						select {
+						case ioResource <- true:
+							fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, cpuProcess.RemainingIOTime)
+							io.UseIO(cpuProcess.Name, cpuProcess.ID, cpuProcess.RemainingIOTime)
+							cpuProcess.RemainingIOTime = 0
+							s.PreemptProcess(cpuProcess)
+							<-ioResource
+							break Loop_Cpu_5
+						default:
+							fmt.Printf("CPU Bound: %s Recurso E/S ocupado, esperando...\n", cpuProcess.Name)
+							time.Sleep(2 * time.Millisecond)
+						}
+					}
+				} else {
+					s.PreemptProcess(cpuProcess)
 				}
-				cpuProcess.Start(s.Quantum, cpuProcess.RemainingIOTime)
-				cpuProcess.RemainingIOTime = 0
-				s.PreemptProcess(cpuProcess)
-			} else { // Se o tempo de IO e CPU for maior que a da preempção, executa o tempo da preempção:
-				fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, s.Quantum)
-				cpuProcess.RemainingIOTime -= s.Quantum
-				cpuProcess.Start(s.Quantum, s.Quantum)
-				s.PreemptProcess(cpuProcess)
+			} else if cpuProcess.RemainingIOTime > s.Quantum { // Se o tempo de IO for maior que a da preempção, executa o tempo da preempção:
+			Loop_Cpu_6:
+				for {
+					select {
+					case ioResource <- true:
+						fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, s.Quantum)
+						io.UseIO(cpuProcess.Name, cpuProcess.ID, s.Quantum)
+						cpuProcess.RemainingIOTime -= s.Quantum
+						s.PreemptProcess(cpuProcess)
+						<-ioResource
+						break Loop_Cpu_6
+					default:
+						fmt.Printf("CPU Bound: %s Recurso E/S ocupado, esperando...\n", cpuProcess.Name)
+						time.Sleep(2 * time.Millisecond)
+					}
+				}
 			}
 		}
-		done <- true
-	} else {
-		done <- true
 	}
 }
 
-func (s *Scheduler) executeIOProcess(ioProcess *process.Thread, done chan<- bool) {
+func (s *Scheduler) executeIOProcess(ioProcess *process.Thread, wg *sync.WaitGroup) {
+	defer wg.Done()
 	if ioProcess != nil {
 		if ioProcess.RemainingIOTime <= s.Quantum { // se o tempo de IO for menor que da preempção, executa o tempo todo:
 			if ioProcess.RemainingIOTime > 0 {
-				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, ioProcess.RemainingIOTime)
+			Loop_IO:
+				for {
+					select {
+					case ioResource <- true:
+						fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, ioProcess.RemainingIOTime)
+						io.UseIO(ioProcess.Name, ioProcess.ID, ioProcess.RemainingIOTime)
+						ioProcess.RemainingIOTime = 0
+						<-ioResource
+						break Loop_IO
+					default:
+						fmt.Printf("I/O Bound: %s Recurso E/S ocupado, esperando...\n", ioProcess.Name)
+						time.Sleep(2 * time.Millisecond)
+					}
+				}
 			}
 			if ioProcess.RemainingCPUTime <= s.Quantum { // se o tempo de CPU for menor que da preempção, executa o tempo todo
-				if ioProcess.RemainingIOTime > 0 {
-					fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingCPUTime)
-				}
-				ioProcess.Start(ioProcess.RemainingCPUTime, ioProcess.RemainingIOTime)
-				ioProcess.RemainingIOTime = 0
-				ioProcess.RemainingCPUTime = 0
-				s.FinishProcess(ioProcess)
-				fmt.Printf("Processo %s finalizado.\n", ioProcess.Name)
-			} else {
-				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de CPU for maior que da preempção, executa o tempo da preempção
-				ioProcess.Start(s.Quantum, ioProcess.RemainingIOTime)
-				ioProcess.RemainingCPUTime -= s.Quantum
-				s.PreemptProcess(ioProcess)
-			}
-		} else {
-			fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de IO for maior que da preempção, executa o tempo da preempção
-			ioProcess.RemainingIOTime -= s.Quantum
-			if ioProcess.RemainingCPUTime <= s.Quantum {
 				if ioProcess.RemainingCPUTime > 0 {
-					fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingCPUTime)
+					for {
+						select {
+						case cpuResource <- true:
+							fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingCPUTime)
+							cpu.UseCPU(ioProcess.Name, ioProcess.ID, ioProcess.RemainingCPUTime)
+							ioProcess.RemainingCPUTime = 0
+							s.FinishProcess(ioProcess)
+							fmt.Printf("Processo %s finalizado.\n", ioProcess.Name)
+							<-cpuResource
+							return
+						default:
+							fmt.Printf("I/O Bound: %s Recurso CPU ocupado, esperando...\n", ioProcess.Name)
+							time.Sleep(2 * time.Millisecond)
+						}
+					}
+				} else {
+					s.FinishProcess(ioProcess)
+					fmt.Printf("Processo %s finalizado.\n", ioProcess.Name)
+					return
 				}
-				ioProcess.Start(ioProcess.RemainingCPUTime, s.Quantum)
-				ioProcess.RemainingCPUTime = 0
-				s.PreemptProcess(ioProcess)
-			} else {
-				fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, s.Quantum) // se o tempo de CPU e IO for maior que da preempção, executa o tempo da preempção
-				ioProcess.Start(s.Quantum, s.Quantum)
-				ioProcess.RemainingCPUTime -= s.Quantum
-				s.PreemptProcess(ioProcess)
+			} else if ioProcess.RemainingCPUTime > s.Quantum { // se o tempo de CPU for maior que da preempção, executa o tempo da preempção
+			Loop_IO_3:
+				for {
+					select {
+					case cpuResource <- true:
+						fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, s.Quantum)
+						cpu.UseCPU(ioProcess.Name, ioProcess.ID, s.Quantum)
+						ioProcess.RemainingCPUTime -= s.Quantum
+						<-cpuResource
+						break Loop_IO_3
+					default:
+						fmt.Printf("I/O Bound: %s Recurso CPU ocupado, esperando...\n", ioProcess.Name)
+						time.Sleep(2 * time.Millisecond)
+					}
+				}
+			}
+		} else if ioProcess.RemainingIOTime > s.Quantum { // se o tempo de IO for maior que da preempção, executa o tempo da preempção
+		Loop_IO_4:
+			for {
+				select {
+				case ioResource <- true:
+					fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", ioProcess.Name, s.Quantum)
+					io.UseIO(ioProcess.Name, ioProcess.ID, s.Quantum)
+					ioProcess.RemainingIOTime -= s.Quantum
+					<-ioResource
+					break Loop_IO_4
+				default:
+					fmt.Printf("I/O Bound: %s Recurso E/S ocupado, esperando...\n", ioProcess.Name)
+					time.Sleep(2 * time.Millisecond)
+				}
+			}
+			if ioProcess.RemainingCPUTime <= s.Quantum { // se o tempo de CPU for menor que da preempção, executa o tempo todo
+				if ioProcess.RemainingCPUTime > 0 {
+				Loop_IO_5:
+					for {
+						select {
+						case cpuResource <- true:
+							fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, ioProcess.RemainingCPUTime)
+							cpu.UseCPU(ioProcess.Name, ioProcess.ID, ioProcess.RemainingCPUTime)
+							ioProcess.RemainingCPUTime = 0
+							s.PreemptProcess(ioProcess)
+							<-cpuResource
+							break Loop_IO_5
+						default:
+							fmt.Printf("I/O Bound: %s Recurso CPU ocupado, esperando...\n", ioProcess.Name)
+							time.Sleep(2 * time.Millisecond)
+						}
+					}
+				} else {
+					s.PreemptProcess(ioProcess)
+				}
+			} else if ioProcess.RemainingCPUTime > s.Quantum { // se o tempo de CPU e IO for maior que da preempção, executa o tempo da preempção
+			Loop_IO_6:
+				for {
+					select {
+					case cpuResource <- true:
+						fmt.Printf("Processo I/O-bound %s está na CPU por %d ms.\n", ioProcess.Name, s.Quantum)
+						cpu.UseCPU(ioProcess.Name, ioProcess.ID, s.Quantum)
+						ioProcess.RemainingCPUTime -= s.Quantum
+						s.PreemptProcess(ioProcess)
+						<-cpuResource
+						break Loop_IO_6
+					default:
+						fmt.Printf("I/O Bound: %s Recurso CPU ocupado, esperando...\n", ioProcess.Name)
+						time.Sleep(2 * time.Millisecond)
+					}
+				}
 			}
 		}
-		done <- true
-	} else {
-		done <- true
 	}
 }
 
 // executeProcess executa um processo CPU-bound e um I/O-bound simultaneamente
 func (s *Scheduler) executeProcess(cpuProcess, ioProcess *process.Thread) {
-	cCpu := make(chan bool)
-	cIO := make(chan bool)
+	wg.Add(2)
 	// Executa o processo CPU-bound, se disponível
-	go s.executeCpuProcess(cpuProcess, cCpu)
+	go s.executeCpuProcess(cpuProcess, &wg)
 	// Executa o processo I/O-bound, se disponível
-	go s.executeIOProcess(ioProcess, cIO)
+	go s.executeIOProcess(ioProcess, &wg)
+	// Aguarda a conclusão de ambos os processos
+	wg.Wait()
 	// Atualiza os processos na fila de prontos
-	<-cCpu
-	<-cIO
 	s.updateReadyQueue(cpuProcess, ioProcess)
 }
 
