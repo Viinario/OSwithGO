@@ -17,7 +17,7 @@ func UseIO(name string, id int, totalTime int) {
 
 	line := fmt.Sprintf("|Thread: %s ID: %d | IO Time: %d ms | simulating: ", name, id, totalTime)
 	for i := totalTime; i >= 0; i-- {
-		line += fmt.Sprintf(" %d ms", i)
+		line += fmt.Sprintf(" %d ms \n", i)
 		if i > 0 {
 			time.Sleep(time.Millisecond) // Simula o Thread utilizando o tempo de IO
 		}

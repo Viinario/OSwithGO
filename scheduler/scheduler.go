@@ -159,7 +159,7 @@ func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread, done chan bool
 				s.FinishProcess(cpuProcess)
 				fmt.Printf("Processo %s finalizado.\n", cpuProcess.Name)
 			} else { // Se o tempo de IO for maior que a da preempção, executa o tempo da preempção:
-				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", cpuProcess.Name, s.Quantum)
+				fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, s.Quantum)
 				cpuProcess.Start(cpuProcess.RemainingCPUTime, s.Quantum)
 				cpuProcess.RemainingIOTime -= s.Quantum
 				s.PreemptProcess(cpuProcess)
@@ -175,7 +175,7 @@ func (s *Scheduler) executeCpuProcess(cpuProcess *process.Thread, done chan bool
 				cpuProcess.RemainingIOTime = 0
 				s.PreemptProcess(cpuProcess)
 			} else { // Se o tempo de IO e CPU for maior que a da preempção, executa o tempo da preempção:
-				fmt.Printf("Processo I/O-bound %s está na E/S por %d ms.\n", cpuProcess.Name, s.Quantum)
+				fmt.Printf("Processo CPU-bound %s está na E/S por %d ms.\n", cpuProcess.Name, s.Quantum)
 				cpuProcess.RemainingIOTime -= s.Quantum
 				cpuProcess.Start(s.Quantum, s.Quantum)
 				s.PreemptProcess(cpuProcess)
