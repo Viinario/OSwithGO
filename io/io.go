@@ -13,12 +13,20 @@ func UseIO(name string, id int, totalTime int) {
 		fmt.Println("Error opening IO file:", err)
 		return
 	}
+	defer file.Close()
 
-	line := fmt.Sprintf("Thread: %s ID: %d, IO Time: %d ms\n ", name, id, totalTime)
+	line := fmt.Sprintf("|Thread: %s ID: %d | IO Time: %d ms | simulating: ", name, id, totalTime)
+	for i := totalTime; i >= 0; i-- {
+		line += fmt.Sprintf(" %d ms", i)
+		if i > 0 {
+			time.Sleep(time.Millisecond) // Simula o Thread utilizando o tempo de IO
+		}
+	}
+
+	line += "\n"
+
 	if _, err := file.WriteString(line); err != nil {
-		fmt.Println("Error writing to IO file:", err)
+		fmt.Println("Error writing thread data to IO file:", err)
 		return
 	}
-	time.Sleep(time.Duration(totalTime) * time.Millisecond) // Simula o Thread utilizando o tempo de IO
-	defer file.Close()
 }

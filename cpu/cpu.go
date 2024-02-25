@@ -10,16 +10,23 @@ import (
 func UseCPU(name string, id int, totalTime int) {
 	file, err := os.OpenFile("cpu.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Println("Error opening CPU file:", err)
+		fmt.Println("Error opening IO file:", err)
 		return
 	}
-
-	line := fmt.Sprintf("Thread: %s ID: %d, IO Time: %d ms\n ", name, id, totalTime)
-	if _, err := file.WriteString(line); err != nil {
-		fmt.Println("Error writing to CPU file:", err)
-		return
-	}
-
-	time.Sleep(time.Duration(totalTime) * time.Millisecond) // Simula o Thread utilizando o tempo de CPU
 	defer file.Close()
+
+	line := fmt.Sprintf("| Thread: %s ID: %d | CPU Time: %d ms | simulating:", name, id, totalTime)
+	for i := totalTime; i >= 0; i-- {
+		line += fmt.Sprintf(" %d ms", i)
+		if i > 0 {
+			time.Sleep(time.Millisecond) // Simula o Thread utilizando o tempo de CPU
+		}
+	}
+
+	line += "\n"
+
+	if _, err := file.WriteString(line); err != nil {
+		fmt.Println("Error writing thread data to IO file:", err)
+		return
+	}
 }
