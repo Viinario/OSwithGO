@@ -113,10 +113,6 @@ func (s *Scheduler) FinishProcess(process *process.Thread) {
 	}
 }
 
-// Aqui o algoritmo ira dar um tempo igual de uso de cpu de io chamado preempção.
-// Tera dois semaforos, um para CPU e outro para IO
-// Caso um processo já esteja utilizando o IO, ele ira esperar ate o semaforo seja liberado
-// a preempção devera ocorrer tanto no cpu bound quanto no io bound
 // RoundRobin executa o algoritmo Round Robin
 func (s *Scheduler) RoundRobin() {
 	cpuBoundQueue := make([]*process.Thread, 0)
