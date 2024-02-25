@@ -41,9 +41,9 @@ func main() {
 			fmt.Scanln(&priority)
 			fmt.Print("O processo é I/O bound (S/N)? ")
 			fmt.Scanln(&ioBoundInput)
-			fmt.Print("Digite o tempo total de CPU (Ex: 10): ")
+			fmt.Print("Digite o tempo total de CPU (Ex: 10 ms): ")
 			fmt.Scanln(&totalCPUTime)
-			fmt.Print("Digite o tempo total de IO (Ex: 10): ")
+			fmt.Print("Digite o tempo total de IO (Ex: 10 ms): ")
 			fmt.Scanln(&totalIOTime)
 
 			s.CreateProcess(name, priority, ioBoundInput, totalCPUTime, totalIOTime)
@@ -52,7 +52,6 @@ func main() {
 			var algorithmChoice int
 			fmt.Println("Escolha o algoritmo de escalonamento:")
 			fmt.Println("1. Round Robin")
-			fmt.Println("2. Prioridade")
 			fmt.Print("Opção: ")
 			_, err := fmt.Scanln(&algorithmChoice)
 			if err != nil {
@@ -63,7 +62,7 @@ func main() {
 
 		case 3:
 			var quantum int
-			fmt.Print("Digite o tempo de quantum da preempção (1 a 10 ms): ")
+			fmt.Print("Digite o tempo de quantum da preempção (Ex: 10 ms): ")
 			_, err := fmt.Scanln(&quantum)
 			if err != nil {
 				fmt.Println("Erro ao ler a entrada:", err)

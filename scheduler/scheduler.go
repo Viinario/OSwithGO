@@ -3,7 +3,6 @@ package scheduler
 import (
 	"fmt"
 	"math/rand"
-	"sort"
 	"sync"
 	"time"
 
@@ -76,8 +75,6 @@ func randString(n int) string {
 func (s *Scheduler) ChooseAlgorithm(choice int) {
 	if choice == 1 {
 		s.Algorithm = s.RoundRobin
-	} else if choice == 2 {
-		s.Algorithm = s.Priority
 	}
 }
 
@@ -398,39 +395,6 @@ func (s *Scheduler) updateReadyQueue(cpuProcess, ioProcess *process.Thread) {
 	if ioProcess != nil && ioProcess.RemainingIOTime > 0 {
 		s.ReadyQueue = append(s.ReadyQueue, ioProcess)
 	}
-}
-
-// Priority executa o algoritmo de prioridade
-func (s *Scheduler) Priority() {
-	if s.CurrentProcess == nil {
-		s.ReadyQueue = s.sortByPriority(s.ReadyQueue)
-		if len(s.ReadyQueue) > 0 {
-			s.CurrentProcess = s.ReadyQueue[0]
-			s.ReadyQueue = s.ReadyQueue[1:]
-		}
-	}
-
-	if s.CurrentProcess != nil {
-		if s.CurrentProcess.RemainingCPUTime <= s.Quantum {
-			fmt.Printf("Processo %s está na CPU por %d ms.\n", s.CurrentProcess.Name, s.CurrentProcess.RemainingCPUTime)
-			s.CurrentProcess.RemainingCPUTime = 0
-			//s.FinishProcess()
-		} else {
-			fmt.Printf("Processo %s está na CPU por %d ms.\n", s.CurrentProcess.Name, s.Quantum)
-			s.CurrentProcess.RemainingCPUTime -= s.Quantum
-			//s.PreemptProcess()
-		}
-	}
-}
-
-// sortByPriority ordena a fila de processos por prioridade
-func (s *Scheduler) sortByPriority(processes []*process.Thread) []*process.Thread {
-	sortedProcesses := make([]*process.Thread, len(processes))
-	copy(sortedProcesses, processes)
-	sort.Slice(sortedProcesses, func(i, j int) bool {
-		return sortedProcesses[i].Priority > sortedProcesses[j].Priority
-	})
-	return sortedProcesses
 }
 
 // RunSimulation executa a simulação de escalonamento
