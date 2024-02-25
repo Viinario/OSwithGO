@@ -8,7 +8,7 @@ O simulador de escalonamento de processos é uma ferramenta que permite aos usu�
 ### Modelagem dos Processos como Goroutines:
 - Os processos são representados como goroutines em Go.
 - Cada goroutine representa um processo que pode ser CPU bound ou I/O bound.
-- 
+  
 ### Controle de Acesso à CPU e ao I/O:
 ##### Starvation:
 - Starvation é um problema comum em sistemas de escalonamento de processos.
