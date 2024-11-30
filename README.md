@@ -1,77 +1,75 @@
 # OSwithGO
 
-# Simulador de Gerenciamento de Processos
+# Process Management Simulator
 
-## Descrição Breve do Projeto:
-O simulador de escalonamento de processos é uma ferramenta que permite aos usuários criar, gerenciar e simular o escalonamento de processos em um sistema operacional. Ele oferece a capacidade de criar processos manualmente ou gerar processos aleatórios, escolher entre diferentes algoritmos de escalonamento, Round Robin, selecionar o tempo de quantum para o algoritmo executar a simulação do escalonamento.
+## Brief Project Description:
+The process scheduling simulator is a tool that enables users to create, manage, and simulate process scheduling in an operating system. It allows users to manually create processes or generate random ones, select from different scheduling algorithms (e.g., Round Robin), define the quantum time for the algorithm, and execute the scheduling simulation.
 
-### Modelagem dos Processos como Goroutines:
-- Os processos são representados como goroutines em Go.
-- Cada goroutine representa um processo que pode ser CPU bound ou I/O bound.
-  
-### Controle de Acesso à CPU e ao I/O:
+### Modeling Processes as Goroutines:
+- Processes are represented as goroutines in Go.
+- Each goroutine represents a process that can be either CPU-bound or I/O-bound.
+
+### CPU and I/O Access Control:
 ##### Starvation:
-- Starvation é um problema comum em sistemas de escalonamento de processos.
-- Ele ocorre quando um processo fica permanentemente impedido de executar devido à priorização de outros processos.
-- Isso pode resultar em processos esperando indefinidamente para serem executados, causando atrasos e impactando o desempenho geral do sistema.
+- Starvation is a common issue in process scheduling systems.
+- It occurs when a process is perpetually prevented from executing due to the prioritization of other processes.
+- This can lead to processes waiting indefinitely, causing delays and impacting overall system performance.
 
-##### Evitando o Starvation
-- O controle é realizado via o algoritmo Round Robin customizado.
-- O algoritmo Round Robin é adaptado para lidar com processos I/O bound e CPU bound simultaneamente.
-- Inicializa os primeiros processos I/O e CPU bound na lista de execução.
-- Cada processo recebe um tempo de execução conforme o quantum definido.
-- Se um processo não terminar sua execução dentro do quantum, ele é retornado ao final da lista de execução, e em seguida, o próximo processo da lista é chamado para execução.
-- Esse mecanismo evita o starvation dos processos, pois proporciona uma parcela igual de tempo de uso da CPU e do I/O para todos os processos, garantindo que todos tenham a oportunidade de serem executados. Isso impede que um processo monopolize os recursos e que outros processos fiquem impedidos de progredir, resultando em uma distribuição mais justa e equilibrada do tempo de CPU e I/O entre os processos.
+##### Avoiding Starvation:
+- Control is implemented using a custom Round Robin algorithm.
+- The Round Robin algorithm is adapted to handle both I/O-bound and CPU-bound processes simultaneously.
+- It initializes the first I/O-bound and CPU-bound processes in the ready queue.
+- Each process is allocated execution time based on the defined quantum.
+- If a process does not complete execution within its quantum, it is returned to the end of the ready queue, and the next process in the list is scheduled for execution.
+- This mechanism prevents starvation by ensuring an equal share of CPU and I/O time for all processes, guaranteeing that all processes have an opportunity to execute. It avoids resource monopolization and ensures fair and balanced CPU and I/O time distribution among processes.
 
-### Recursos Compartilhados:
-- Os recursos compartilhados incluem canais `cpuResource` e `ioResource`, utilizados para controlar o acesso à CPU e aos recursos de I/O, respectivamente.
-- Os processos compartilham esses recursos para coordenar suas operações de CPU e I/O.
-- Esses recursos estão nos arquivos `cpu.go` e `io.go`.
-  - Eles funcionam da seguinte forma: criam um arquivo txt referente à CPU ou I/O.
-  - Durante a simulação, escrevem o nome do processo, seu ID e o tempo de uso no arquivo correspondente.
-  - Após terminar, liberam o recurso para que outros processos possam utilizá-lo.
+### Shared Resources:
+- Shared resources include `cpuResource` and `ioResource` channels, used to control access to the CPU and I/O resources, respectively.
+- Processes share these resources to coordinate CPU and I/O operations.
+- These resources are implemented in the `cpu.go` and `io.go` files:
+  - They create a text file for CPU or I/O.
+  - During simulation, they log the process name, ID, and usage time in the corresponding file.
+  - Once finished, the resource is released for other processes to use.
 
-### Controle da Concorrência:
-- A concorrência é controlada utilizando canais para sincronização entre as goroutines que representam os processos.
-- Os canais são utilizados para coordenar o acesso aos recursos compartilhados, garantindo que apenas um processo possa acessar a CPU ou o dispositivo de I/O por vez.
+### Concurrency Control:
+- Concurrency is managed using channels for synchronization between the goroutines representing the processes.
+- Channels coordinate access to shared resources, ensuring that only one process can access the CPU or I/O device at a time.
 
-### Implementação Parametrizada:
-- O algoritmo de escalonamento e o tempo de quantum são parametrizados pelo menu do usuário.
-- Os recursos compartilhados e a sincronização são gerenciados globalmente no código, garantindo consistência e controle adequado da concorrência.
+### Parameterized Implementation:
+- The scheduling algorithm and quantum time are configurable via a user menu.
+- Shared resources and synchronization are globally managed in the code, ensuring consistency and proper concurrency control.
 
-## Descrição Detalhada:
+## Detailed Description:
 
-1. **Criação de Processos:**
-   - Os usuários podem criar processos manualmente, inserindo informações como nome, prioridade, se é I/O bound ou não, e o tempo total de CPU.
-   - Também é possível gerar um número especificado de processos aleatórios, onde as informações são geradas de forma aleatória, como nome, prioridade, se é I/O bound ou não, e o tempo total de CPU.
+1. **Process Creation:**
+   - Users can manually create processes by inputting details such as name, priority, whether the process is I/O-bound, and total CPU time.
+   - Alternatively, users can generate a specified number of random processes, with randomly assigned attributes like name, priority, I/O-bound status, and total CPU time.
 
-2. **Escolha de Algoritmo de Escalonamento:**
-   - Os usuários podem escolher o algoritmo de escalonamento disponível: Round Robin.
-   - As ações de escalonamento são definidas de acordo com as regras do algoritmo selecionado.
+2. **Scheduling Algorithm Selection:**
+   - Users can choose the available scheduling algorithm: Round Robin.
+   - Scheduling actions are defined based on the selected algorithm's rules.
 
-3. **Seleção de Tempo de Quantum:**
-   - Os usuários podem definir o tempo de quantum, que é o intervalo de tempo máximo que um processo pode ocupar a CPU e I/O antes de ser preempedido.
+3. **Quantum Time Selection:**
+   - Users can define the quantum time, which is the maximum time interval a process can occupy the CPU or I/O before being preempted.
 
-4. **Execução da Simulação:**
-   - A simulação é iniciada quando os usuários optam por executar o escalonamento.
-   - Durante a simulação, a fila de processos prontos é exibida, e o algoritmo de escalonamento selecionado é aplicado aos processos na fila.
-   - Os processos são executados de acordo com as regras do algoritmo escolhido até que todos os processos tenham sido concluídos.
-   - Durante a execução da simulação, os processos I/O bound e CPU bound são tratados simultaneamente. 
-     - Se um processo estiver em estado de I/O bound, ele iniciará sua operação de I/O enquanto aguarda a CPU.
-     - Enquanto isso, os processos CPU bound utilizarão a CPU.
-     - Se um processo I/O bound precisar da CPU, ele aguardará até que a CPU esteja disponível.
-     - Se um processo CPU bound precisar de I/O, ele aguardará até que o dispositivo de I/O esteja livre.
-   - Essa administração acontece na função `executeProcess`, localizada no arquivo `scheduler.go`. 
-     - Essa função utiliza `cpuResource = make(chan bool, 1)` para controlar o recurso da CPU e `ioResource = make(chan bool, 1)` para controlar o recurso de I/O.
-     - Um canal em Go é uma estrutura de dados que permite a comunicação e sincronização entre goroutines, que são "threads" leves. 
-     - A função `executeProcess` utiliza goroutines para controlar a utilização dos recursos de CPU e I/O de forma sincronizada, garantindo um comportamento correto na simulação.
-    - As goroutines são como "threads" em Go, que são gerenciadas pelo próprio Go Runtime, permitindo uma concorrência eficiente.
-   - Além disso, a variável `wg` do tipo `sync.WaitGroup` é utilizada para coordenar e esperar o término das goroutines, garantindo que a simulação seja concluída corretamente.
-.
-1. **Cálculo do Tempo Médio de Espera:**
-   - Após a conclusão da simulação, o tempo médio de espera dos processos é calculado e exibido.
-   - O tempo médio de espera representa o tempo médio que os processos esperam na fila de prontos antes de serem executados.
+4. **Simulation Execution:**
+   - The simulation begins when users choose to execute the scheduling.
+   - During the simulation, the ready queue is displayed, and the selected scheduling algorithm is applied to processes in the queue.
+   - Processes execute according to the algorithm's rules until all processes are completed.
+   - During simulation:
+     - I/O-bound processes initiate their I/O operations while waiting for the CPU.
+     - CPU-bound processes utilize the CPU.
+     - If an I/O-bound process needs the CPU, it waits until the CPU is available.
+     - If a CPU-bound process needs I/O, it waits until the I/O device is free.
+   - This management is handled in the `executeProcess` function in the `scheduler.go` file:
+     - The function uses `cpuResource = make(chan bool, 1)` to control CPU resources and `ioResource = make(chan bool, 1)` to manage I/O resources.
+     - Channels in Go facilitate communication and synchronization between goroutines (lightweight threads managed by the Go runtime).
+     - The `executeProcess` function employs goroutines to synchronously manage CPU and I/O resource usage, ensuring proper behavior during simulation.
+   - Additionally, the `wg` variable of type `sync.WaitGroup` is used to coordinate and wait for the completion of goroutines, ensuring the simulation concludes correctly.
 
-2. **Menu de Opções Interativo:**
-   - Um menu interativo permite que os usuários naveguem pelas diferentes funcionalidades do simulador, como criar processos, escolher algoritmos, selecionar o tempo de quantum, iniciar a simulação, criar processos aleatórios e sair do programa.
+5. **Average Waiting Time Calculation:**
+   - After the simulation concludes, the average waiting time of processes is calculated and displayed.
+   - The average waiting time represents the mean time processes wait in the ready queue before execution.
 
+6. **Interactive Menu Options:**
+   - An interactive menu enables users to navigate through the simulator's features, such as creating processes, choosing algorithms, defining quantum time, starting simulations, generating random processes, and exiting the program.
